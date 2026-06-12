@@ -42,8 +42,10 @@
     width:40px;height:40px;border-radius:11px;font-size:18px;cursor:pointer;flex:0 0 auto}
   .gear:active{background:rgba(255,255,255,.16)}
   .tabs{display:flex;gap:6px;margin-top:16px;background:rgba(255,255,255,.06);padding:4px;border-radius:12px}
-  .tab{flex:1;text-align:center;padding:9px;border-radius:9px;font-size:14px;font-weight:600;color:#AAB0B8;cursor:pointer;border:none;background:none;font-family:inherit}
+  .tab{flex:1;text-align:center;padding:9px 4px;border-radius:9px;font-size:13px;font-weight:600;color:#AAB0B8;cursor:pointer;border:none;background:none;font-family:inherit}
   .tab.active{background:linear-gradient(180deg,#EDEFF2,#C8CCD2);color:#15171C}
+  .hdrcontact{font-size:11.5px;color:var(--mute2);line-height:1.5;margin-top:4px}
+  .hdrcontact span{display:block}
 
   main{padding:18px 16px 40px}
 
@@ -151,6 +153,40 @@
 
   .hint{font-size:11.5px;color:var(--mute2);margin-top:6px;line-height:1.4}
   .req::after{content:" *";color:var(--due)}
+
+  /* period filter */
+  .period{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .period .pill{padding:8px 13px;font-size:13px}
+  .period .pill.on{background:var(--slate);color:#fff;border-color:var(--slate)}
+  .customrange{display:none;gap:10px;margin-bottom:12px}
+  .customrange.on{display:flex}
+  .periodlabel{font-size:12px;color:var(--muted);margin:-4px 0 12px}
+
+  /* expense list */
+  .eitem{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:9px;display:flex;gap:12px;align-items:center}
+  .emain{flex:1;min-width:0}
+  .edesc{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .esub{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .etag{display:inline-block;font-size:10px;font-weight:600;background:#EEF0F3;color:var(--slate2);padding:1px 7px;border-radius:5px;margin-right:5px}
+  .eamt{font-family:'Space Mono',monospace;font-weight:700;font-size:14px;color:var(--due);flex:0 0 auto}
+  .edel{background:none;border:none;color:var(--mute2);font-size:15px;cursor:pointer;padding:4px;flex:0 0 auto}
+
+  /* profit cards */
+  .pcard{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px;margin-bottom:12px}
+  .prow{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+  .prow:last-child{border-bottom:none}
+  .prow .pk{font-size:13.5px;color:var(--muted)}
+  .prow .pv{font-family:'Space Mono',monospace;font-weight:700;font-size:16px}
+  .prow.rev .pv{color:var(--paid)}
+  .prow.exp .pv{color:var(--due)}
+  .netcard{background:linear-gradient(160deg,#23272F,#15171C);border-radius:14px;padding:20px;color:#fff;text-align:center;margin-bottom:12px}
+  .netcard .nl{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mute2)}
+  .netcard .nv{font-family:'Space Mono',monospace;font-weight:700;font-size:34px;margin-top:4px}
+  .netcard .nv.pos{color:#5FD79B}
+  .netcard .nv.neg{color:#F0888A}
+  .ctx{display:flex;gap:10px;margin-bottom:12px}
+  .ctx .stat{flex:1}
+  .stat.bill .sv{color:var(--slate2);font-size:16px}
   /* Client view */
   .clientbar{background:var(--slate);color:#fff;text-align:center;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-family:'Space Grotesk';color:var(--mute2)}
 </style>
@@ -163,13 +199,15 @@
     <div class="brandrow">
       <div>
         <div class="brand" id="hdrName">Platinum Services LLC</div>
-        <div class="brandsub">Receipts &amp; Records</div>
+        <div class="hdrcontact" id="hdrContact"></div>
       </div>
       <button class="gear" onclick="openSettings()" aria-label="Settings">⚙</button>
     </div>
     <div class="tabs">
-      <button class="tab active" id="tabNew" onclick="show('new')">New Receipt</button>
+      <button class="tab active" id="tabNew" onclick="show('new')">Receipt</button>
       <button class="tab" id="tabHist" onclick="show('hist')">History</button>
+      <button class="tab" id="tabExp" onclick="show('exp')">Expenses</button>
+      <button class="tab" id="tabProfit" onclick="show('profit')">Profit</button>
     </div>
   </header>
 
@@ -241,11 +279,71 @@
         <div class="stat rev"><div class="sl">Collected</div><div class="sv" id="statRev">$0</div></div>
         <div class="stat out"><div class="sl">Outstanding</div><div class="sv" id="statOut">$0</div></div>
       </div>
-      <div class="search"><input id="searchBox" placeholder="Search by customer name…" oninput="renderHist()"></div>
+      <div class="search"><input id="searchBox" placeholder="Search by client or type of work…" oninput="renderHist()"></div>
       <div id="histList"></div>
+    </section>
+
+    <!-- EXPENSES -->
+    <section id="viewExp" style="display:none">
+      <div class="card">
+        <div class="sectlabel">Log an expense</div>
+        <div class="row">
+          <div class="field money"><label class="req">Amount</label><input id="expAmt" inputmode="decimal" placeholder="0.00"></div>
+          <div class="field"><label class="req">Date</label><input id="expDate" type="date"></div>
+        </div>
+        <div class="field"><label class="req">Description</label><input id="expDesc" placeholder="e.g. Paint &amp; supplies, gas, dump fee"></div>
+        <div class="row">
+          <div class="field"><label>Client</label><input id="expClient" list="clientList" placeholder="Optional"></div>
+          <div class="field"><label>Type of work</label><select id="expType"></select></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveExpense()">Add expense</button>
+      </div>
+
+      <div class="card">
+        <div class="sectlabel">Recorded expenses</div>
+        <div class="period" id="expPeriod"></div>
+        <div class="customrange" id="expCustom">
+          <div class="field" style="flex:1;margin:0"><label>From</label><input id="expFrom" type="date" onchange="renderExp()"></div>
+          <div class="field" style="flex:1;margin:0"><label>To</label><input id="expTo" type="date" onchange="renderExp()"></div>
+        </div>
+        <div class="stats">
+          <div class="stat out"><div class="sl">Total expenses</div><div class="sv" id="expTotal">$0</div></div>
+          <div class="stat"><div class="sl">Entries</div><div class="sv" id="expCount" style="color:var(--slate2)">0</div></div>
+        </div>
+        <div id="expList"></div>
+      </div>
+    </section>
+
+    <!-- NET PROFIT -->
+    <section id="viewProfit" style="display:none">
+      <div class="card">
+        <div class="sectlabel">Net profit</div>
+        <div class="period" id="profitPeriod"></div>
+        <div class="customrange" id="profitCustom">
+          <div class="field" style="flex:1;margin:0"><label>From</label><input id="profitFrom" type="date" onchange="renderProfit()"></div>
+          <div class="field" style="flex:1;margin:0"><label>To</label><input id="profitTo" type="date" onchange="renderProfit()"></div>
+        </div>
+        <div class="periodlabel" id="profitRangeLabel"></div>
+
+        <div class="netcard">
+          <div class="nl">Net Profit</div>
+          <div class="nv" id="netVal">$0.00</div>
+        </div>
+        <div class="pcard">
+          <div class="prow rev"><span class="pk">Revenue collected</span><span class="pv" id="profitRev">$0.00</span></div>
+          <div class="prow exp"><span class="pk">Business expenses</span><span class="pv" id="profitExp">$0.00</span></div>
+        </div>
+        <div class="ctx">
+          <div class="stat bill"><div class="sl">Total billed</div><div class="sv" id="profitBilled">$0</div></div>
+          <div class="stat out"><div class="sl">Still outstanding</div><div class="sv" id="profitOut">$0</div></div>
+        </div>
+        <div class="hint">Revenue counts money actually collected (by date paid). Billed and outstanding are shown for context and don't affect net profit.</div>
+      </div>
     </section>
   </main>
 </div>
+
+<datalist id="clientList"></datalist>
 
 <!-- ============ RECEIPT DETAIL SHEET ============ -->
 <div class="scrim" id="detailScrim">
@@ -271,9 +369,7 @@
     <p class="sub">These appear at the top of every receipt.</p>
     <div class="field"><label>Company name</label><input id="setName"></div>
     <div class="field"><label>Phone</label><input id="setPhone" type="tel"></div>
-    <div class="field"><label>Email</label><input id="setEmail" type="email">
-      <div class="hint">Heads up: the name says "Platinum" but the email reads "Platinium" — fix here if that's a typo.</div>
-    </div>
+    <div class="field"><label>Email</label><input id="setEmail" type="email"></div>
     <div class="field" style="margin-top:4px">
       <label>Types of work</label>
       <div class="hint" style="margin:0 0 9px">These appear as options when creating a receipt. Add more as the business grows.</div>
@@ -291,14 +387,17 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const LS_KEY='psl_receipts_v1', LS_BIZ='psl_biz_v1', LS_CT='psl_counter_v1', LS_TYPES='psl_types_v1';
+const LS_KEY='psl_receipts_v1', LS_BIZ='psl_biz_v1', LS_CT='psl_counter_v1', LS_TYPES='psl_types_v1', LS_EXP='psl_expenses_v1';
 const DEFAULT_TYPES=['Painting','Moving','Cleaning','House','Maintenance'];
 const METHODS=['Cash','Zelle','Cash App','Venmo','Check','PayPal'];
-const DEFAULT_BIZ={name:'Platinum Services LLC',phone:'+1 (740) 963-6134',email:'Platinium.services0@gmail.com'};
+const PERIODS=[['today','Today'],['week','This Week'],['month','This Month'],['year','This Year'],['custom','Custom']];
+const DEFAULT_BIZ={name:'Platinum Services LLC',phone:'+1 (740) 963-6134',email:'Platinum.services0@gmail.com'};
 
 let biz = load(LS_BIZ) || {...DEFAULT_BIZ};
 let workTypes = load(LS_TYPES) || [...DEFAULT_TYPES];
 let receipts = load(LS_KEY) || [];
+let expenses = load(LS_EXP) || [];
+let expMode='month', profitMode='month';
 let selTypes=new Set(), selMethod=null, currentId=null;
 
 function load(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
@@ -340,11 +439,13 @@ function calc(){
 
 /* ---------- nav ---------- */
 function show(v){
-  $('viewNew').style.display = v==='new'?'block':'none';
-  $('viewHist').style.display = v==='hist'?'block':'none';
-  $('tabNew').classList.toggle('active',v==='new');
-  $('tabHist').classList.toggle('active',v==='hist');
+  const views={'new':'viewNew','hist':'viewHist','exp':'viewExp','profit':'viewProfit'};
+  const tabs={'new':'tabNew','hist':'tabHist','exp':'tabExp','profit':'tabProfit'};
+  Object.entries(views).forEach(([k,id])=>$(id).style.display = k===v?'block':'none');
+  Object.entries(tabs).forEach(([k,id])=>$(id).classList.toggle('active',k===v));
   if(v==='hist') renderHist();
+  if(v==='exp'){ refreshClientList(); renderExp(); }
+  if(v==='profit') renderProfit();
 }
 
 /* ---------- save receipt ---------- */
@@ -441,7 +542,10 @@ function renderHist(){
   receipts.forEach(r=>{rev+=Number(r.paid)||0; out+=Math.max(0,(Number(r.total)||0)-(Number(r.paid)||0))});
   $('statRev').textContent=money0(rev);
   $('statOut').textContent=money0(out);
-  const list=receipts.filter(r=>(r.customer.name||'').toLowerCase().includes(q));
+  const list=receipts.filter(r=>{
+    const hay=((r.customer.name||'')+' '+(r.type||'')).toLowerCase();
+    return hay.includes(q);
+  });
   if(!list.length){
     $('histList').innerHTML=`<div class="empty"><div class="big">🧾</div>${receipts.length?'No matches.':'No receipts yet.<br>Create your first one.'}</div>`;
     return;
@@ -477,17 +581,20 @@ function addWorkType(){
   const v=$('newType').value.trim(); if(!v)return;
   if(workTypes.some(t=>t.toLowerCase()===v.toLowerCase())){toast('Already on the list');return}
   workTypes.push(v); save(LS_TYPES,workTypes); $('newType').value='';
-  renderTypeMgr(); buildPills(); toast('Added '+v);
+  renderTypeMgr(); buildPills(); fillExpTypeSelect(); toast('Added '+v);
 }
 function removeWorkType(i){
   const t=workTypes[i]; workTypes.splice(i,1); save(LS_TYPES,workTypes);
   selTypes.delete(t);
-  renderTypeMgr(); buildPills();
+  renderTypeMgr(); buildPills(); fillExpTypeSelect();
 }
 function saveSettings(){
   biz={name:$('setName').value.trim(),phone:$('setPhone').value.trim(),email:$('setEmail').value.trim()};
-  save(LS_BIZ,biz); $('hdrName').textContent=biz.name;
+  save(LS_BIZ,biz); $('hdrName').textContent=biz.name; renderHdrContact();
   closeSheet('settingsScrim'); toast('Saved');
+}
+function renderHdrContact(){
+  $('hdrContact').innerHTML = `<span>${esc(biz.phone||'')}</span><span>${esc(biz.email||'')}</span>`;
 }
 
 /* ---------- PDF (jsPDF, hand-drawn vector) ---------- */
@@ -575,7 +682,111 @@ function copyLink(){
   navigator.clipboard?.writeText(url).then(()=>toast('Client link copied'),()=>prompt('Copy this link:',url));
 }
 
-/* ---------- client (read-only) view from #r= ---------- */
+/* ===================== EXPENSES & NET PROFIT ===================== */
+function parseLocal(str){
+  if(!str) return new Date(NaN);
+  if(str.includes('T')) return new Date(str);
+  const [y,m,d]=str.split('-').map(Number); return new Date(y,m-1,d);
+}
+function rangeFor(mode,fromVal,toVal){
+  const now=new Date(); let s,e;
+  const startOfDay=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,0,0,0);
+  const endOfDay=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59,59,999);
+  if(mode==='today'){ s=startOfDay(now); e=endOfDay(now); }
+  else if(mode==='week'){ const w=new Date(now); w.setDate(now.getDate()-now.getDay()); s=startOfDay(w); const we=new Date(s); we.setDate(s.getDate()+6); e=endOfDay(we); }
+  else if(mode==='month'){ s=new Date(now.getFullYear(),now.getMonth(),1); e=endOfDay(new Date(now.getFullYear(),now.getMonth()+1,0)); }
+  else if(mode==='year'){ s=new Date(now.getFullYear(),0,1); e=endOfDay(new Date(now.getFullYear(),11,31)); }
+  else { // custom
+    s = fromVal ? startOfDay(parseLocal(fromVal)) : new Date(2000,0,1);
+    e = toVal ? endOfDay(parseLocal(toVal)) : endOfDay(now);
+  }
+  return {s,e};
+}
+function rangeLabel(mode,r){
+  const f=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  if(mode==='today') return 'Today, '+f(r.s);
+  return f(r.s)+' — '+f(r.e);
+}
+function buildPeriodPills(containerId,activeMode,onPick){
+  $(containerId).innerHTML = PERIODS.map(([m,lbl])=>
+    `<div class="pill ${m===activeMode?'on':''}" onclick="${onPick}('${m}')">${lbl}</div>`).join('');
+}
+function refreshClientList(){
+  const names=[...new Set(receipts.map(r=>r.customer.name).filter(Boolean))];
+  $('clientList').innerHTML=names.map(n=>`<option value="${esc(n)}">`).join('');
+}
+function fillExpTypeSelect(){
+  $('expType').innerHTML='<option value="">— none —</option>'+workTypes.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+}
+
+/* ---- expenses ---- */
+function saveExpense(){
+  const amt=parseFloat($('expAmt').value)||0;
+  if(!amt){toast('Enter an amount');return}
+  if(!$('expDate').value){toast('Pick a date');return}
+  if(!$('expDesc').value.trim()){toast('Add a description');return}
+  expenses.unshift({
+    id:'e'+Date.now(), createdAt:Date.now(),
+    amount:amt, date:$('expDate').value,
+    desc:$('expDesc').value.trim(),
+    client:$('expClient').value.trim(),
+    type:$('expType').value
+  });
+  save(LS_EXP,expenses);
+  $('expAmt').value=''; $('expDesc').value=''; $('expClient').value=''; $('expType').value='';
+  setExpDateNow(); renderExp(); toast('Expense recorded');
+}
+function deleteExpense(id){
+  if(!confirm('Delete this expense?'))return;
+  expenses=expenses.filter(e=>e.id!==id); save(LS_EXP,expenses); renderExp();
+}
+function pickExpPeriod(m){ expMode=m; $('expCustom').classList.toggle('on',m==='custom'); buildPeriodPills('expPeriod',expMode,'pickExpPeriod'); renderExp(); }
+function renderExp(){
+  buildPeriodPills('expPeriod',expMode,'pickExpPeriod');
+  const r=rangeFor(expMode,$('expFrom').value,$('expTo').value);
+  const list=expenses.filter(e=>{const d=parseLocal(e.date);return d>=r.s&&d<=r.e;})
+                     .sort((a,b)=>parseLocal(b.date)-parseLocal(a.date));
+  const total=list.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  $('expTotal').textContent=money0(total);
+  $('expCount').textContent=list.length;
+  if(!list.length){ $('expList').innerHTML=`<div class="empty"><div class="big">📒</div>No expenses in this period.</div>`; return; }
+  $('expList').innerHTML=list.map(e=>{
+    const tags=[e.client&&`<span class="etag">${esc(e.client)}</span>`,e.type&&`<span class="etag">${esc(e.type)}</span>`].filter(Boolean).join('');
+    return `<div class="eitem">
+      <div class="emain">
+        <div class="edesc">${esc(e.desc)}</div>
+        <div class="esub">${tags}${parseLocal(e.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+      </div>
+      <div class="eamt">${money(e.amount)}</div>
+      <button class="edel" onclick="deleteExpense('${e.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+function setExpDateNow(){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); $('expDate').value=d.toISOString().slice(0,10); }
+
+/* ---- net profit ---- */
+function pickProfitPeriod(m){ profitMode=m; $('profitCustom').classList.toggle('on',m==='custom'); buildPeriodPills('profitPeriod',profitMode,'pickProfitPeriod'); renderProfit(); }
+function renderProfit(){
+  buildPeriodPills('profitPeriod',profitMode,'pickProfitPeriod');
+  const r=rangeFor(profitMode,$('profitFrom').value,$('profitTo').value);
+  let rev=0,billed=0,out=0,exp=0;
+  receipts.forEach(rc=>{ const d=parseLocal(rc.paidAt); if(d>=r.s&&d<=r.e){
+    rev+=Number(rc.paid)||0; billed+=Number(rc.total)||0; out+=Math.max(0,(Number(rc.total)||0)-(Number(rc.paid)||0));
+  }});
+  expenses.forEach(e=>{ const d=parseLocal(e.date); if(d>=r.s&&d<=r.e) exp+=Number(e.amount)||0; });
+  const net=rev-exp;
+  $('profitRangeLabel').textContent=rangeLabel(profitMode,r);
+  $('profitRev').textContent=money(rev);
+  $('profitExp').textContent=money(exp);
+  $('profitBilled').textContent=money0(billed);
+  $('profitOut').textContent=money0(out);
+  const nv=$('netVal'); nv.textContent=(net<0?'-$':'$')+Math.abs(net).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  nv.className='nv '+(net>=0?'pos':'neg');
+}
+
+/* ===================== END EXPENSES & NET PROFIT ===================== */
+
+
 let _clientReceipt=null;
 function tryClientView(){
   const h=location.hash;
@@ -597,7 +808,9 @@ function tryClientView(){
 function init(){
   if(tryClientView())return;
   $('hdrName').textContent=biz.name;
-  buildPills(); setNow(); calc();
+  renderHdrContact();
+  buildPills(); fillExpTypeSelect(); setExpDateNow();
+  setNow(); calc();
 }
 init();
 </script>
