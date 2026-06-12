@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Platinum Services — Receipts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#EEF0F3; --paper:#FFFFFF; --ink:#15171C; --slate:#1E222A;
+    --slate2:#2A2F3A; --line:#E2E5EA; --muted:#6B7280; --mute2:#9AA0A8;
+    --platinum1:#D7DADF; --platinum2:#A9AEB6;
+    --paid:#1F7A4D; --paidbg:#E7F3EC;
+    --partial:#A9781A; --partialbg:#FBF1DD;
+    --due:#B23A3A; --duebg:#FBE9E9;
+    --r:14px; --shadow:0 10px 30px rgba(20,23,28,.10);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--bg);
+    -webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom);
+  }
+  .wrap{max-width:560px;margin:0 auto;min-height:100vh}
+
+  /* Header */
+  header{
+    background:linear-gradient(160deg,#23272F 0%,#15171C 100%);
+    color:#fff;padding:calc(20px + env(safe-area-inset-top)) 20px 18px;
+    position:sticky;top:0;z-index:30;
+  }
+  .brandrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;letter-spacing:.3px;
+    background:linear-gradient(180deg,#F4F5F7,#AAB0B8);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brandsub{font-size:11px;color:var(--mute2);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
+  .gear{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#D7DADF;
+    width:40px;height:40px;border-radius:11px;font-size:18px;cursor:pointer;flex:0 0 auto}
+  .gear:active{background:rgba(255,255,255,.16)}
+  .tabs{display:flex;gap:6px;margin-top:16px;background:rgba(255,255,255,.06);padding:4px;border-radius:12px}
+  .tab{flex:1;text-align:center;padding:9px;border-radius:9px;font-size:14px;font-weight:600;color:#AAB0B8;cursor:pointer;border:none;background:none;font-family:inherit}
+  .tab.active{background:linear-gradient(180deg,#EDEFF2,#C8CCD2);color:#15171C}
+
+  main{padding:18px 16px 40px}
+
+  /* Form */
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:18px;margin-bottom:16px}
+  .field{margin-bottom:14px}
+  .field:last-child{margin-bottom:0}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;letter-spacing:.2px}
+  input,select,textarea{
+    width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:10px;font-size:16px;
+    font-family:inherit;background:#fff;color:var(--ink);outline:none;transition:border .15s,box-shadow .15s}
+  input:focus,select:focus,textarea:focus{border-color:var(--slate2);box-shadow:0 0 0 3px rgba(42,47,58,.10)}
+  textarea{resize:vertical;min-height:54px}
+  .row{display:flex;gap:10px}
+  .row>*{flex:1}
+  .money input{font-family:'Space Mono',monospace;font-weight:700}
+  .sectlabel{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;letter-spacing:1.4px;
+    text-transform:uppercase;color:var(--slate2);margin:2px 0 12px;display:flex;align-items:center;gap:8px}
+  .sectlabel::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  .pills{display:flex;flex-wrap:wrap;gap:7px}
+  .pill{padding:9px 13px;border:1px solid var(--line);border-radius:999px;font-size:13.5px;font-weight:500;
+    background:#fff;cursor:pointer;color:var(--ink);user-select:none}
+  .pill.on{background:var(--slate);color:#fff;border-color:var(--slate)}
+
+  .btn{display:block;width:100%;padding:15px;border:none;border-radius:12px;font-size:15.5px;font-weight:700;
+    font-family:'Space Grotesk',sans-serif;letter-spacing:.3px;cursor:pointer}
+  .btn-primary{background:linear-gradient(180deg,#2A2F3A,#15171C);color:#fff}
+  .btn-primary:active{transform:translateY(1px)}
+  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .btnrow{display:flex;gap:10px}.btnrow .btn{flex:1}
+
+  /* Live receipt preview / paper */
+  .paperwrap{padding:0 2px;margin-bottom:16px}
+  .paper{
+    background:var(--paper);box-shadow:var(--shadow);position:relative;
+    border-radius:0 0 6px 6px;padding:24px 22px 26px;overflow:hidden}
+  .paper::before{
+    content:"";position:absolute;top:0;left:0;right:0;height:10px;
+    background:repeating-linear-gradient(-45deg,var(--paper) 0 7px,transparent 7px 14px);
+    filter:drop-shadow(0 -2px 0 var(--paper));
+    -webkit-mask:repeating-linear-gradient(90deg,#000 0 9px,transparent 9px 18px);
+    mask:repeating-linear-gradient(90deg,#000 0 9px,transparent 9px 18px)}
+  .ptop{border-top:6px solid var(--slate);margin:-24px -22px 18px;padding:18px 22px 0}
+  .pco{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:19px;color:var(--ink)}
+  .pcontact{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:3px}
+  .pmeta{display:flex;justify-content:space-between;align-items:flex-end;margin:14px 0 4px}
+  .pnum{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted)}
+  .pnum b{color:var(--ink)}
+  .stamp{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;letter-spacing:1px;
+    border:2px solid;border-radius:7px;padding:5px 11px;transform:rotate(-5deg);text-transform:uppercase}
+  .stamp.paid{color:var(--paid);border-color:var(--paid);background:var(--paidbg)}
+  .stamp.partial{color:var(--partial);border-color:var(--partial);background:var(--partialbg)}
+  .stamp.due{color:var(--due);border-color:var(--due);background:var(--duebg)}
+  .dash{height:1px;background:repeating-linear-gradient(90deg,var(--line) 0 5px,transparent 5px 10px);margin:16px 0}
+  .lrow{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;padding:5px 0}
+  .lrow .k{color:var(--muted)}
+  .lrow .v{font-family:'Space Mono',monospace;font-weight:700;color:var(--ink);text-align:right}
+  .lrow .vt{font-family:'Inter';font-weight:600}
+  .total{font-size:15px}
+  .balance{font-size:18px;padding:12px 0 2px}
+  .balance .v{font-size:20px}
+  .balance.zero .v{color:var(--paid)}
+  .balance.owe .v{color:var(--due)}
+  .pcust{font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:14px}
+  .pcust b{color:var(--ink);font-weight:600}
+  .pfoot{text-align:center;font-size:11px;color:var(--mute2);margin-top:18px;letter-spacing:.3px}
+
+  /* History */
+  .stats{display:flex;gap:10px;margin-bottom:14px}
+  .stat{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+  .stat .sl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  .stat .sv{font-family:'Space Mono',monospace;font-weight:700;font-size:19px;margin-top:3px}
+  .stat.out .sv{color:var(--due)}
+  .stat.rev .sv{color:var(--paid)}
+  .search{margin-bottom:12px}
+  .hitem{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:center;cursor:pointer}
+  .hitem:active{background:#FAFBFC}
+  .hav{width:42px;height:42px;border-radius:10px;background:var(--slate);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;flex:0 0 auto}
+  .hmain{flex:1;min-width:0}
+  .hname{font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hsub{font-size:12px;color:var(--muted);margin-top:2px}
+  .hright{text-align:right;flex:0 0 auto}
+  .hamt{font-family:'Space Mono',monospace;font-weight:700;font-size:14px}
+  .hbadge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 7px;border-radius:6px;margin-top:4px;display:inline-block}
+  .hbadge.paid{color:var(--paid);background:var(--paidbg)}
+  .hbadge.partial{color:var(--partial);background:var(--partialbg)}
+  .hbadge.due{color:var(--due);background:var(--duebg)}
+  .empty{text-align:center;color:var(--muted);padding:50px 20px;font-size:14px}
+  .empty .big{font-size:34px;margin-bottom:10px}
+
+  /* Modal */
+  .scrim{position:fixed;inset:0;background:rgba(20,23,28,.55);z-index:60;display:none;align-items:flex-end;justify-content:center}
+  .scrim.open{display:flex}
+  .sheet{background:#fff;width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:22px 18px calc(22px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto;animation:up .22s ease}
+  @keyframes up{from{transform:translateY(20px);opacity:.6}to{transform:none;opacity:1}}
+  .sheet h2{font-family:'Space Grotesk';font-size:18px;margin:0 0 4px}
+  .sheet p.sub{color:var(--muted);font-size:13px;margin:0 0 16px}
+  .sheet .close{float:right;background:#F1F2F4;border:none;width:32px;height:32px;border-radius:9px;font-size:16px;cursor:pointer;color:var(--muted)}
+
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom));
+    background:var(--ink);color:#fff;padding:12px 18px;border-radius:11px;font-size:13.5px;font-weight:500;z-index:90;
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .hint{font-size:11.5px;color:var(--mute2);margin-top:6px;line-height:1.4}
+  .req::after{content:" *";color:var(--due)}
+  /* Client view */
+  .clientbar{background:var(--slate);color:#fff;text-align:center;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-family:'Space Grotesk';color:var(--mute2)}
+</style>
+</head>
+<body>
+
+<!-- ============ OWNER APP ============ -->
+<div class="wrap" id="app">
+  <header>
+    <div class="brandrow">
+      <div>
+        <div class="brand" id="hdrName">Platinum Services LLC</div>
+        <div class="brandsub">Receipts &amp; Records</div>
+      </div>
+      <button class="gear" onclick="openSettings()" aria-label="Settings">⚙</button>
+    </div>
+    <div class="tabs">
+      <button class="tab active" id="tabNew" onclick="show('new')">New Receipt</button>
+      <button class="tab" id="tabHist" onclick="show('hist')">History</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- NEW RECEIPT -->
+    <section id="viewNew">
+      <div class="card">
+        <div class="sectlabel">Project</div>
+        <div class="field">
+          <label class="req">Type of work</label>
+          <div class="pills" id="typePills"></div>
+          <input id="typeOther" placeholder="Describe the work" style="margin-top:10px;display:none">
+        </div>
+        <div class="field">
+          <label>Notes <span style="color:var(--mute2);font-weight:400">(optional)</span></label>
+          <textarea id="notes" placeholder="e.g. 3-bedroom interior, 2 coats"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="sectlabel">Payment</div>
+        <div class="row">
+          <div class="field money">
+            <label class="req">Total amount</label>
+            <input id="total" inputmode="decimal" placeholder="0.00" oninput="calc()">
+          </div>
+          <div class="field money">
+            <label class="req">Amount paid</label>
+            <input id="paid" inputmode="decimal" placeholder="0.00" oninput="calc()">
+          </div>
+        </div>
+        <div class="field">
+          <label class="req">Paid by</label>
+          <div class="pills" id="methodPills"></div>
+        </div>
+        <div class="field">
+          <label class="req">Date &amp; time paid</label>
+          <input id="paidAt" type="datetime-local">
+        </div>
+        <div class="lrow balance" id="balPreview" style="border-top:1px dashed var(--line);margin-top:4px;padding-top:12px">
+          <span class="k">Balance remaining</span><span class="v">$0.00</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="sectlabel">Customer</div>
+        <div class="field">
+          <label class="req">Name</label>
+          <input id="custName" placeholder="Customer name">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Phone</label>
+            <input id="custPhone" type="tel" inputmode="tel" placeholder="(740) 000-0000">
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input id="custEmail" type="email" inputmode="email" placeholder="name@email.com">
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="saveReceipt()">Generate Receipt</button>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="viewHist" style="display:none">
+      <div class="stats">
+        <div class="stat rev"><div class="sl">Collected</div><div class="sv" id="statRev">$0</div></div>
+        <div class="stat out"><div class="sl">Outstanding</div><div class="sv" id="statOut">$0</div></div>
+      </div>
+      <div class="search"><input id="searchBox" placeholder="Search by customer name…" oninput="renderHist()"></div>
+      <div id="histList"></div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ RECEIPT DETAIL SHEET ============ -->
+<div class="scrim" id="detailScrim">
+  <div class="sheet">
+    <button class="close" onclick="closeSheet('detailScrim')">✕</button>
+    <h2>Receipt</h2>
+    <p class="sub" id="detailNum"></p>
+    <div class="paperwrap"><div class="paper" id="detailPaper"></div></div>
+    <div class="btnrow" style="margin-bottom:10px">
+      <button class="btn btn-primary" onclick="sharePDF()">Share PDF</button>
+      <button class="btn btn-ghost" onclick="downloadPDF()">Download</button>
+    </div>
+    <button class="btn btn-ghost" onclick="copyLink()" style="margin-bottom:10px">Copy client link</button>
+    <button class="btn btn-ghost" style="color:var(--due);border-color:var(--duebg)" onclick="deleteReceipt()">Delete receipt</button>
+  </div>
+</div>
+
+<!-- ============ SETTINGS SHEET ============ -->
+<div class="scrim" id="settingsScrim">
+  <div class="sheet">
+    <button class="close" onclick="closeSheet('settingsScrim')">✕</button>
+    <h2>Business details</h2>
+    <p class="sub">These appear at the top of every receipt.</p>
+    <div class="field"><label>Company name</label><input id="setName"></div>
+    <div class="field"><label>Phone</label><input id="setPhone" type="tel"></div>
+    <div class="field"><label>Email</label><input id="setEmail" type="email">
+      <div class="hint">Heads up: the name says "Platinum" but the email reads "Platinium" — fix here if that's a typo.</div>
+    </div>
+    <div class="field" style="margin-top:4px">
+      <label>Types of work</label>
+      <div class="hint" style="margin:0 0 9px">These appear as options when creating a receipt. Add more as the business grows.</div>
+      <div class="pills" id="typeMgr"></div>
+      <div class="row" style="margin-top:10px">
+        <input id="newType" placeholder="Add a type of work" style="flex:1" onkeydown="if(event.key==='Enter')addWorkType()">
+        <button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:12px 18px" onclick="addWorkType()">Add</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveSettings()" style="margin-top:6px">Save</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const LS_KEY='psl_receipts_v1', LS_BIZ='psl_biz_v1', LS_CT='psl_counter_v1', LS_TYPES='psl_types_v1';
+const DEFAULT_TYPES=['Painting','Moving','Cleaning','House','Maintenance'];
+const METHODS=['Cash','Zelle','Cash App','Venmo','Check','PayPal'];
+const DEFAULT_BIZ={name:'Platinum Services LLC',phone:'+1 (740) 963-6134',email:'Platinium.services0@gmail.com'};
+
+let biz = load(LS_BIZ) || {...DEFAULT_BIZ};
+let workTypes = load(LS_TYPES) || [...DEFAULT_TYPES];
+let receipts = load(LS_KEY) || [];
+let selTypes=new Set(), selMethod=null, currentId=null;
+
+function load(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
+function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
+function money(n){return '$'+(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function money0(n){return '$'+Math.round(Number(n)||0).toLocaleString('en-US')}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)}
+
+function statusOf(total,paid){
+  total=Number(total)||0;paid=Number(paid)||0;
+  if(paid<=0) return 'due';
+  if(paid>=total) return 'paid';
+  return 'partial';
+}
+function statusLabel(s){return s==='paid'?'Paid in Full':s==='partial'?'Partial':'Balance Due'}
+
+/* ---------- build pill UI ---------- */
+function buildPills(){
+  $('typePills').innerHTML = workTypes.map(t=>`<div class="pill" data-t="${esc(t)}" onclick="toggleType(this)">${esc(t)}</div>`).join('')
+    + `<div class="pill" data-t="Other" onclick="toggleType(this)">Other</div>`;
+  [...$('typePills').children].forEach(el=>{if(selTypes.has(el.getAttribute('data-t')))el.classList.add('on')});
+  $('typeOther').style.display = selTypes.has('Other')?'block':'none';
+  $('methodPills').innerHTML = METHODS.map(m=>`<div class="pill" onclick="pickMethod('${m}',this)">${esc(m)}</div>`).join('');
+}
+function toggleType(el){
+  const t=el.getAttribute('data-t');
+  if(el.classList.toggle('on')) selTypes.add(t); else selTypes.delete(t);
+  $('typeOther').style.display = selTypes.has('Other')?'block':'none';
+}
+function pickMethod(m,el){selMethod=m;[...$('methodPills').children].forEach(c=>c.classList.remove('on'));el.classList.add('on')}
+
+function calc(){
+  const t=parseFloat($('total').value)||0, p=parseFloat($('paid').value)||0;
+  const bal=Math.max(0,t-p), el=$('balPreview');
+  el.querySelector('.v').textContent=money(bal);
+  el.className='lrow balance '+(bal<=0&&t>0?'zero':bal>0?'owe':'');
+}
+
+/* ---------- nav ---------- */
+function show(v){
+  $('viewNew').style.display = v==='new'?'block':'none';
+  $('viewHist').style.display = v==='hist'?'block':'none';
+  $('tabNew').classList.toggle('active',v==='new');
+  $('tabHist').classList.toggle('active',v==='hist');
+  if(v==='hist') renderHist();
+}
+
+/* ---------- save receipt ---------- */
+function nextNumber(){
+  let c=(load(LS_CT)||0)+1; save(LS_CT,c);
+  return 'PSL-'+String(c).padStart(4,'0');
+}
+function saveReceipt(){
+  const total=parseFloat($('total').value)||0;
+  const paid=parseFloat($('paid').value)||0;
+  if(selTypes.size===0){toast('Pick at least one type of work');return}
+  let typeList=[...selTypes].filter(t=>t!=='Other');
+  if(selTypes.has('Other')){const o=$('typeOther').value.trim();if(o)typeList.push(o);}
+  if(typeList.length===0){toast('Describe the work for "Other"');return}
+  const typeVal=typeList.join(', ');
+  if(!total){toast('Enter the total amount');return}
+  if(!selMethod){toast('Pick a payment method');return}
+  if(!$('custName').value.trim()){toast('Enter the customer name');return}
+
+  const r={
+    id:'r'+Date.now(), number:nextNumber(), createdAt:Date.now(),
+    company:{...biz},
+    type:typeVal, notes:$('notes').value.trim(),
+    total, paid, method:selMethod,
+    paidAt:$('paidAt').value || new Date().toISOString().slice(0,16),
+    customer:{name:$('custName').value.trim(),phone:$('custPhone').value.trim(),email:$('custEmail').value.trim()}
+  };
+  receipts.unshift(r); save(LS_KEY,receipts);
+  resetForm();
+  openDetail(r.id);
+  toast('Receipt '+r.number+' saved');
+}
+function resetForm(){
+  ['total','paid','notes','custName','custPhone','custEmail','typeOther'].forEach(i=>$(i).value='');
+  $('typeOther').style.display='none';
+  selTypes=new Set(); selMethod=null;
+  [...$('typePills').children,...$('methodPills').children].forEach(c=>c.classList.remove('on'));
+  setNow(); calc();
+}
+function setNow(){
+  const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+  $('paidAt').value=d.toISOString().slice(0,16);
+}
+
+/* ---------- render a paper receipt (HTML) ---------- */
+function fmtDate(iso){try{const d=new Date(iso);return d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})}catch(e){return iso}}
+function paperHTML(r){
+  const bal=Math.max(0,r.total-r.paid), st=statusOf(r.total,r.paid);
+  const c=r.customer||{};
+  return `
+   <div class="ptop">
+     <div class="pco">${esc(r.company.name)}</div>
+     <div class="pcontact">${esc(r.company.phone)} &nbsp;·&nbsp; ${esc(r.company.email)}</div>
+   </div>
+   <div class="pmeta">
+     <div class="pnum">RECEIPT<br><b>${esc(r.number)}</b></div>
+     <div class="stamp ${st}">${statusLabel(st)}</div>
+   </div>
+   <div class="dash"></div>
+   <div class="lrow"><span class="k">Service</span><span class="v vt">${esc(r.type)}</span></div>
+   ${r.notes?`<div class="lrow"><span class="k">Notes</span><span class="v vt" style="max-width:60%">${esc(r.notes)}</span></div>`:''}
+   <div class="lrow"><span class="k">Paid on</span><span class="v vt">${fmtDate(r.paidAt)}</span></div>
+   <div class="lrow"><span class="k">Method</span><span class="v vt">${esc(r.method)}</span></div>
+   <div class="dash"></div>
+   <div class="lrow total"><span class="k">Project total</span><span class="v">${money(r.total)}</span></div>
+   <div class="lrow"><span class="k">Amount paid</span><span class="v">${money(r.paid)}</span></div>
+   <div class="lrow balance ${bal<=0?'zero':'owe'}"><span class="k">Balance ${bal<=0?'cleared':'remaining'}</span><span class="v">${money(bal)}</span></div>
+   <div class="dash"></div>
+   <div class="pcust"><b>Billed to</b><br>${esc(c.name||'')}${c.phone?'<br>'+esc(c.phone):''}${c.email?'<br>'+esc(c.email):''}</div>
+   <div class="pfoot">Thank you for your business · ${esc(r.company.name)}</div>
+  `;
+}
+
+/* ---------- detail sheet ---------- */
+function openDetail(id){
+  currentId=id; const r=receipts.find(x=>x.id===id) || _clientReceipt;
+  if(!r)return;
+  $('detailNum').textContent=r.number+' · '+fmtDate(r.createdAt||r.paidAt);
+  $('detailPaper').innerHTML=paperHTML(r);
+  $('detailScrim').classList.add('open');
+}
+function closeSheet(id){$(id).classList.remove('open')}
+
+function deleteReceipt(){
+  if(!confirm('Delete this receipt permanently?'))return;
+  receipts=receipts.filter(r=>r.id!==currentId); save(LS_KEY,receipts);
+  closeSheet('detailScrim'); renderHist(); toast('Receipt deleted');
+}
+
+/* ---------- history ---------- */
+function renderHist(){
+  const q=($('searchBox').value||'').toLowerCase();
+  let rev=0,out=0;
+  receipts.forEach(r=>{rev+=Number(r.paid)||0; out+=Math.max(0,(Number(r.total)||0)-(Number(r.paid)||0))});
+  $('statRev').textContent=money0(rev);
+  $('statOut').textContent=money0(out);
+  const list=receipts.filter(r=>(r.customer.name||'').toLowerCase().includes(q));
+  if(!list.length){
+    $('histList').innerHTML=`<div class="empty"><div class="big">🧾</div>${receipts.length?'No matches.':'No receipts yet.<br>Create your first one.'}</div>`;
+    return;
+  }
+  $('histList').innerHTML=list.map(r=>{
+    const st=statusOf(r.total,r.paid), init=(r.customer.name||'?').trim()[0].toUpperCase();
+    return `<div class="hitem" onclick="openDetail('${r.id}')">
+      <div class="hav">${esc(init)}</div>
+      <div class="hmain">
+        <div class="hname">${esc(r.customer.name)}</div>
+        <div class="hsub">${esc(r.type)} · ${fmtDate(r.paidAt)}</div>
+      </div>
+      <div class="hright">
+        <div class="hamt">${money(r.total)}</div>
+        <span class="hbadge ${st}">${st==='paid'?'Paid':st==='partial'?'Partial':'Due'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- settings ---------- */
+function openSettings(){
+  $('setName').value=biz.name;$('setPhone').value=biz.phone;$('setEmail').value=biz.email;
+  renderTypeMgr();
+  $('settingsScrim').classList.add('open');
+}
+function renderTypeMgr(){
+  $('typeMgr').innerHTML = workTypes.length
+    ? workTypes.map((t,i)=>`<span class="pill on" style="display:inline-flex;align-items:center;gap:9px">${esc(t)}<b style="cursor:pointer;opacity:.65;font-weight:700" onclick="removeWorkType(${i})">✕</b></span>`).join('')
+    : '<span class="hint">No types yet — add one below.</span>';
+}
+function addWorkType(){
+  const v=$('newType').value.trim(); if(!v)return;
+  if(workTypes.some(t=>t.toLowerCase()===v.toLowerCase())){toast('Already on the list');return}
+  workTypes.push(v); save(LS_TYPES,workTypes); $('newType').value='';
+  renderTypeMgr(); buildPills(); toast('Added '+v);
+}
+function removeWorkType(i){
+  const t=workTypes[i]; workTypes.splice(i,1); save(LS_TYPES,workTypes);
+  selTypes.delete(t);
+  renderTypeMgr(); buildPills();
+}
+function saveSettings(){
+  biz={name:$('setName').value.trim(),phone:$('setPhone').value.trim(),email:$('setEmail').value.trim()};
+  save(LS_BIZ,biz); $('hdrName').textContent=biz.name;
+  closeSheet('settingsScrim'); toast('Saved');
+}
+
+/* ---------- PDF (jsPDF, hand-drawn vector) ---------- */
+function buildPDF(r){
+  const { jsPDF } = window.jspdf;
+  const W=400, doc=new jsPDF({unit:'pt',format:[W,640]});
+  const bal=Math.max(0,r.total-r.paid), st=statusOf(r.total,r.paid);
+  const L=34, R=W-34; let y=0;
+  const ink=[21,23,28], slate=[42,47,58], mut=[107,114,128], line=[226,229,234];
+  const col={paid:[31,122,77],partial:[169,120,26],due:[178,58,58]}[st];
+
+  doc.setFillColor(...slate); doc.rect(0,0,W,8,'F');
+  y=44;
+  doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(...ink);
+  doc.text(r.company.name, L, y);
+  y+=16; doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...mut);
+  doc.text(r.company.phone+'   ·   '+r.company.email, L, y);
+
+  y+=24;
+  doc.setFont('courier','bold'); doc.setFontSize(10); doc.setTextColor(...ink);
+  doc.text('RECEIPT  '+r.number, L, y);
+  // status stamp
+  doc.setDrawColor(...col); doc.setTextColor(...col); doc.setLineWidth(1.4);
+  const lbl=statusLabel(st).toUpperCase(), tw=doc.getTextWidth(lbl)+18;
+  doc.roundedRect(R-tw, y-13, tw, 20, 4,4,'S');
+  doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  doc.text(lbl, R-tw/2, y+1, {align:'center'});
+
+  y+=18; dash(doc,L,R,y,line);
+  const lineItem=(k,v,opt={})=>{
+    y+=22; doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(...mut);
+    doc.text(k,L,y);
+    doc.setTextColor(...(opt.color||ink)); doc.setFont(opt.mono?'courier':'helvetica', opt.bold?'bold':'normal');
+    doc.setFontSize(opt.size||10);
+    doc.text(String(v),R,y,{align:'right'});
+  };
+  lineItem('Service', r.type, {bold:true});
+  if(r.notes) lineItem('Notes', trunc(doc,r.notes,170));
+  lineItem('Paid on', fmtDate(r.paidAt));
+  lineItem('Method', r.method, {bold:true});
+  y+=14; dash(doc,L,R,y,line);
+  lineItem('Project total', money(r.total), {mono:true,bold:true,size:11});
+  lineItem('Amount paid', money(r.paid), {mono:true,bold:true,size:11});
+  lineItem(bal<=0?'Balance cleared':'Balance remaining', money(bal), {mono:true,bold:true,size:13,color:(bal<=0?[31,122,77]:[178,58,58])});
+  y+=14; dash(doc,L,R,y,line);
+
+  y+=22; doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...ink);
+  doc.text('BILLED TO',L,y);
+  const c=r.customer||{}; doc.setFont('helvetica','normal');doc.setTextColor(...mut);doc.setFontSize(10);
+  [c.name,c.phone,c.email].filter(Boolean).forEach(t=>{y+=15;doc.text(t,L,y)});
+
+  y+=30; doc.setDrawColor(...line);doc.setLineWidth(.5);doc.line(L,y,R,y);
+  y+=16; doc.setFontSize(8.5);doc.setTextColor(150,156,164);
+  doc.text('Thank you for your business · '+r.company.name, W/2, y, {align:'center'});
+
+  return doc;
+}
+function dash(doc,x1,x2,yy,c){doc.setDrawColor(...c);doc.setLineWidth(1);doc.setLineDashPattern([2,2],0);doc.line(x1,yy,x2,yy);doc.setLineDashPattern([],0)}
+function trunc(doc,t,max){let s=t;while(doc.getTextWidth(s)>max&&s.length>3)s=s.slice(0,-1);return s.length<t.length?s.slice(0,-1)+'…':s}
+
+function currentReceipt(){return receipts.find(r=>r.id===currentId) || _clientReceipt}
+function pdfFileName(r){return 'Receipt_'+r.number+'_'+(r.customer.name||'').replace(/\s+/g,'')+'.pdf'}
+
+function downloadPDF(){
+  const r=currentReceipt(); if(!r)return;
+  buildPDF(r).save(pdfFileName(r));
+}
+async function sharePDF(){
+  const r=currentReceipt(); if(!r)return;
+  try{
+    const blob=buildPDF(r).output('blob');
+    const file=new File([blob],pdfFileName(r),{type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:'Receipt '+r.number,text:r.company.name+' — Receipt '+r.number});
+    }else{
+      buildPDF(r).save(pdfFileName(r));
+      toast('PDF downloaded — attach it to send');
+    }
+  }catch(e){ if(e.name!=='AbortError'){buildPDF(r).save(pdfFileName(r));} }
+}
+function copyLink(){
+  const r=currentReceipt(); if(!r)return;
+  const data=btoa(encodeURIComponent(JSON.stringify(r)));
+  const url=location.origin+location.pathname+'#r='+data;
+  navigator.clipboard?.writeText(url).then(()=>toast('Client link copied'),()=>prompt('Copy this link:',url));
+}
+
+/* ---------- client (read-only) view from #r= ---------- */
+let _clientReceipt=null;
+function tryClientView(){
+  const h=location.hash;
+  if(!h.startsWith('#r='))return false;
+  try{
+    const r=JSON.parse(decodeURIComponent(atob(h.slice(3))));
+    _clientReceipt=r; currentId=null;
+    document.getElementById('app').style.display='none';
+    const cv=document.createElement('div'); cv.className='wrap';
+    cv.innerHTML=`<div class="clientbar">${esc(r.company.name)}</div>
+      <main><div class="paperwrap"><div class="paper">${paperHTML(r)}</div></div>
+      <button class="btn btn-primary" onclick="buildPDF(_clientReceipt).save(pdfFileName(_clientReceipt))">Download PDF</button></main>`;
+    document.body.insertBefore(cv,document.getElementById('toast'));
+    return true;
+  }catch(e){return false}
+}
+
+/* ---------- init ---------- */
+function init(){
+  if(tryClientView())return;
+  $('hdrName').textContent=biz.name;
+  buildPills(); setNow(); calc();
+}
+init();
+</script>
+</body>
+</html>
