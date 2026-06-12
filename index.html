@@ -270,7 +270,7 @@
         </div>
       </div>
 
-      <button class="btn btn-primary" onclick="saveReceipt()">Generate Receipt</button>
+      <button class="btn btn-primary" id="genBtn" onclick="saveReceipt()">Generate Receipt</button>
     </section>
 
     <!-- HISTORY -->
@@ -279,6 +279,7 @@
         <div class="stat rev"><div class="sl">Collected</div><div class="sv" id="statRev">$0</div></div>
         <div class="stat out"><div class="sl">Outstanding</div><div class="sv" id="statOut">$0</div></div>
       </div>
+      <button class="btn btn-ghost" onclick="exportReceiptsCSV()" style="margin-bottom:12px">⬇︎ Export receipts (CSV)</button>
       <div class="search"><input id="searchBox" placeholder="Search by client or type of work…" oninput="renderHist()"></div>
       <div id="histList"></div>
     </section>
@@ -311,6 +312,7 @@
           <div class="stat"><div class="sl">Entries</div><div class="sv" id="expCount" style="color:var(--slate2)">0</div></div>
         </div>
         <div id="expList"></div>
+        <button class="btn btn-ghost" onclick="exportExpensesCSV()" style="margin-top:4px">⬇︎ Export these expenses (CSV)</button>
       </div>
     </section>
 
@@ -338,6 +340,7 @@
           <div class="stat out"><div class="sl">Still outstanding</div><div class="sv" id="profitOut">$0</div></div>
         </div>
         <div class="hint">Revenue counts money actually collected (by date paid). Billed and outstanding are shown for context and don't affect net profit.</div>
+        <button class="btn btn-ghost" onclick="exportProfitCSV()" style="margin-top:14px">⬇︎ Export P&amp;L (CSV)</button>
       </div>
     </section>
   </main>
@@ -356,6 +359,7 @@
       <button class="btn btn-primary" onclick="sharePDF()">Share PDF</button>
       <button class="btn btn-ghost" onclick="downloadPDF()">Download</button>
     </div>
+    <button class="btn btn-ghost" onclick="editReceipt()" style="margin-bottom:10px">Edit details</button>
     <button class="btn btn-ghost" onclick="copyLink()" style="margin-bottom:10px">Copy client link</button>
     <button class="btn btn-ghost" style="color:var(--due);border-color:var(--duebg)" onclick="deleteReceipt()">Delete receipt</button>
   </div>
@@ -398,7 +402,7 @@ let workTypes = load(LS_TYPES) || [...DEFAULT_TYPES];
 let receipts = load(LS_KEY) || [];
 let expenses = load(LS_EXP) || [];
 let expMode='month', profitMode='month';
-let selTypes=new Set(), selMethod=null, currentId=null;
+let selTypes=new Set(), selMethod=null, currentId=null, editingId=null;
 
 function load(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
 function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
@@ -465,23 +469,62 @@ function saveReceipt(){
   if(!selMethod){toast('Pick a payment method');return}
   if(!$('custName').value.trim()){toast('Enter the customer name');return}
 
-  const r={
-    id:'r'+Date.now(), number:nextNumber(), createdAt:Date.now(),
+  const payload={
     company:{...biz},
     type:typeVal, notes:$('notes').value.trim(),
     total, paid, method:selMethod,
     paidAt:$('paidAt').value || new Date().toISOString().slice(0,16),
     customer:{name:$('custName').value.trim(),phone:$('custPhone').value.trim(),email:$('custEmail').value.trim()}
   };
+
+  if(editingId){
+    const idx=receipts.findIndex(x=>x.id===editingId);
+    if(idx>-1){ receipts[idx]={...receipts[idx], ...payload}; save(LS_KEY,receipts); }
+    const id=editingId;
+    resetForm();
+    openDetail(id);
+    toast('Receipt updated');
+    return;
+  }
+
+  const r={ id:'r'+Date.now(), number:nextNumber(), createdAt:Date.now(), ...payload };
   receipts.unshift(r); save(LS_KEY,receipts);
   resetForm();
   openDetail(r.id);
   toast('Receipt '+r.number+' saved');
 }
+
+function editReceipt(){
+  const r=receipts.find(x=>x.id===currentId); if(!r)return;
+  editingId=r.id;
+  // restore selected work types (match known types, push unknowns into "Other")
+  selTypes=new Set(); const customs=[];
+  (r.type||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(p=>{
+    const known=workTypes.find(t=>t.toLowerCase()===p.toLowerCase());
+    if(known) selTypes.add(known); else customs.push(p);
+  });
+  if(customs.length) selTypes.add('Other');
+  buildPills();
+  $('typeOther').value=customs.join(', ');
+  $('typeOther').style.display=selTypes.has('Other')?'block':'none';
+  // method
+  selMethod=r.method;
+  [...$('methodPills').children].forEach(c=>c.classList.toggle('on',c.textContent===r.method));
+  // fields
+  $('total').value=r.total; $('paid').value=r.paid; $('notes').value=r.notes||'';
+  $('paidAt').value=r.paidAt;
+  $('custName').value=r.customer.name||''; $('custPhone').value=r.customer.phone||''; $('custEmail').value=r.customer.email||'';
+  calc();
+  $('genBtn').textContent='Update receipt '+r.number;
+  closeSheet('detailScrim'); show('new'); window.scrollTo(0,0);
+  toast('Editing '+r.number);
+}
+
 function resetForm(){
   ['total','paid','notes','custName','custPhone','custEmail','typeOther'].forEach(i=>$(i).value='');
   $('typeOther').style.display='none';
-  selTypes=new Set(); selMethod=null;
+  selTypes=new Set(); selMethod=null; editingId=null;
+  $('genBtn').textContent='Generate Receipt';
   [...$('typePills').children,...$('methodPills').children].forEach(c=>c.classList.remove('on'));
   setNow(); calc();
 }
@@ -785,6 +828,62 @@ function renderProfit(){
 }
 
 /* ===================== END EXPENSES & NET PROFIT ===================== */
+
+/* ===================== CSV EXPORT ===================== */
+function csvEsc(v){ v=(v==null?'':String(v)); return /[",\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+function toCSV(head,rows){ return [head,...rows].map(r=>r.map(csvEsc).join(',')).join('\r\n'); }
+function downloadCSV(name,csv){
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  const file=new File([blob],name,{type:'text/csv'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    navigator.share({files:[file],title:name}).catch(()=>{});
+  }else{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }
+}
+function exportReceiptsCSV(){
+  if(!receipts.length){toast('No receipts to export');return}
+  const head=['Receipt #','Created','Date Paid','Client','Phone','Email','Work Type','Notes','Total','Paid','Balance','Method','Status'];
+  const rows=receipts.map(r=>{
+    const bal=Math.max(0,r.total-r.paid);
+    return [r.number,fmtDate(r.createdAt),fmtDate(r.paidAt),r.customer.name,r.customer.phone,r.customer.email,r.type,r.notes,
+            Number(r.total).toFixed(2),Number(r.paid).toFixed(2),bal.toFixed(2),r.method,statusLabel(statusOf(r.total,r.paid))];
+  });
+  downloadCSV('PlatinumServices_Receipts.csv',toCSV(head,rows));
+}
+function exportExpensesCSV(){
+  const r=rangeFor(expMode,$('expFrom').value,$('expTo').value);
+  const list=expenses.filter(e=>{const d=parseLocal(e.date);return d>=r.s&&d<=r.e;}).sort((a,b)=>parseLocal(a.date)-parseLocal(b.date));
+  if(!list.length){toast('No expenses in this period');return}
+  const head=['Date','Description','Client','Work Type','Amount'];
+  const rows=list.map(e=>[e.date,e.desc,e.client,e.type,Number(e.amount).toFixed(2)]);
+  const total=list.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  rows.push([],['','','','TOTAL',total.toFixed(2)]);
+  downloadCSV('PlatinumServices_Expenses_'+expMode+'.csv',toCSV(head,rows));
+}
+function exportProfitCSV(){
+  const r=rangeFor(profitMode,$('profitFrom').value,$('profitTo').value);
+  let rev=0,billed=0,out=0,exp=0;
+  receipts.forEach(rc=>{const d=parseLocal(rc.paidAt);if(d>=r.s&&d<=r.e){rev+=Number(rc.paid)||0;billed+=Number(rc.total)||0;out+=Math.max(0,(Number(rc.total)||0)-(Number(rc.paid)||0));}});
+  expenses.forEach(e=>{const d=parseLocal(e.date);if(d>=r.s&&d<=r.e)exp+=Number(e.amount)||0;});
+  const net=rev-exp;
+  const head=['Profit & Loss',''];
+  const rows=[
+    ['Period',rangeLabel(profitMode,r)],
+    [],
+    ['Revenue collected',rev.toFixed(2)],
+    ['Business expenses',exp.toFixed(2)],
+    ['Net profit',net.toFixed(2)],
+    [],
+    ['Total billed',billed.toFixed(2)],
+    ['Still outstanding',out.toFixed(2)]
+  ];
+  downloadCSV('PlatinumServices_P&L_'+profitMode+'.csv',toCSV(head,rows));
+}
+/* ===================== END CSV EXPORT ===================== */
 
 
 let _clientReceipt=null;
